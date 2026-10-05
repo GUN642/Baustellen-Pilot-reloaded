@@ -1,0 +1,109 @@
+name: APK bauen
+
+# Baut bei jedem Push (alle Branches) und von Hand über "Actions".
+# Ein GitHub-Release mit der APK entsteht nur auf dem Standard-Branch des
+# Repositorys – daraus liest die App ihre Update-Prüfung.
+"on":
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - "**.md"
+
+concurrency:
+  group: apk-bau-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Projekt auschecken
+        uses: actions/checkout@v4
+
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Android SDK einrichten
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: APK bauen
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
+
+      - name: Logik-Tests
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon :app:testReleaseUnitTest --tests '*LogikTest*' 2>&1 | tee -a build.log | tail -25
+          grep -h "<testsuite" app/build/test-results/testReleaseUnitTest/*.xml | sed -E 's/.*name="([^"]+)" tests="([0-9]+)" skipped="([0-9]+)" failures="([0-9]+)" errors="([0-9]+)".*/\1: \2 Tests, \4 Fehlschläge, \5 Fehler/'
+
+      - name: Fehler zusammenfassen
+        if: failure()
+        run: |
+          echo "==== FEHLER ===="
+          grep -E "^e: |error:|What went wrong|AAPT|resource .* not found|FAILED|AssertionError|expected" -A2 build.log | head -120 || true
+
+      - name: Bildschirmfotos erzeugen
+        continue-on-error: true
+        run: ./gradlew --no-daemon :app:recordPaparazziRelease 2>&1 | tail -40
+
+      - name: Bildschirmfotos ablegen
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bildschirmfotos
+          path: app/src/test/snapshots/images/*.png
+          if-no-files-found: ignore
+
+      - name: Bildschirmfotos unter eigener Referenz ablegen
+        if: always()
+        continue-on-error: true
+        run: |
+          ls app/src/test/snapshots/images/*.png >/dev/null 2>&1 || exit 0
+          mkdir -p /tmp/fotos && cp app/src/test/snapshots/images/*.png /tmp/fotos/
+          cd /tmp/fotos
+          git init -q && git checkout -q -b fotos
+          git -c user.name=ci -c user.email=ci@localhost add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "Bildschirmfotos ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:refs/bildschirmfotos/stand
+
+      - name: Version ermitteln
+        id: version
+        run: |
+          V=$(grep -E '^val appVersionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+          cp app/build/outputs/apk/release/app-release.apk "BaustellenPilotReloaded-v$V.apk"
+
+      - name: APK als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BaustellenPilotReloaded-APK
+          path: BaustellenPilotReloaded-v*.apk
+
+      - name: Release anlegen (nur Standard-Branch)
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.version.outputs.name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" BaustellenPilotReloaded-v*.apk --clobber
+            gh release edit "$TAG" --notes "Automatisch gebaut aus ${GITHUB_SHA::7}."
+          else
+            gh release create "$TAG" BaustellenPilotReloaded-v*.apk \
+              --title "Baustellen Pilot Reloaded $TAG" \
+              --notes "Automatisch gebaut aus ${GITHUB_SHA::7}."
+          fi
