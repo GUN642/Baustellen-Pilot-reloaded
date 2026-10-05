@@ -194,9 +194,9 @@ fun RegieMaskeEbene(start: RegieMaskeStart) {
                         { m -> Box(m) { VorschlagFeld(mitarbeiter, { mitarbeiter = it }, "Mitarbeiter", bekannteMitarbeiter.map { it to it }) } },
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ZeitFeld(beginn, { beginn = it }, "Arbeitsbeginn", Modifier.weight(1f))
-                        ZeitFeld(ende, { ende = it }, "Arbeitsende", Modifier.weight(1f))
-                        Feld(pause, { pause = it }, "Pause (Min.)", Modifier.weight(1f), tastatur = KeyboardType.Number)
+                        ZeitFeld(beginn, { beginn = it }, "Beginn", Modifier.weight(1f))
+                        ZeitFeld(ende, { ende = it }, "Ende", Modifier.weight(1f))
+                        Feld(pause, { pause = it }, "Pause min", Modifier.weight(1f), tastatur = KeyboardType.Number)
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RUND_KLEIN).background(p.panelAlt).padding(10.dp)) {
                         Mono("Arbeitszeit " + stundenText(minuten.toDouble()), p.text, 13.sp, fett = true)
@@ -210,11 +210,13 @@ fun RegieMaskeEbene(start: RegieMaskeStart) {
             item {
                 Karte("Ausgeführte Leistungen", "02") {
                     positionen.forEachIndexed { i, pz ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Feld(pz.beschreibung, { pz.beschreibung = it }, "Beschreibung", Modifier.weight(1f), mehrzeilig = true)
-                            Feld(pz.menge, { pz.menge = it }, "Menge", Modifier.weight(0.38f), tastatur = KeyboardType.Decimal)
-                            Feld(pz.einheit, { pz.einheit = it }, "Einh.", Modifier.weight(0.32f), platzhalter = "m³")
-                            LoeschKnopf { positionen.removeAt(i) }
+                        Column(Modifier.padding(bottom = 8.dp)) {
+                            Feld(pz.beschreibung, { pz.beschreibung = it }, "Position ${i + 1}: Beschreibung", mehrzeilig = true)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Feld(pz.menge, { pz.menge = it }, "Menge", Modifier.weight(1f), tastatur = KeyboardType.Decimal)
+                                Feld(pz.einheit, { pz.einheit = it }, "Einheit", Modifier.weight(1f), platzhalter = "m³, t, Std. …")
+                                LoeschKnopf { positionen.removeAt(i) }
+                            }
                         }
                     }
                     Knopfreihe { Knopf("+ Position", klein = true) { positionen.add(PosZeile("", "", "")) } }

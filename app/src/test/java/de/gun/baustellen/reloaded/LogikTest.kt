@@ -98,6 +98,19 @@ class LogikTest {
         assertEquals(d.tagesnotizen, zurueck.tagesnotizen)
     }
 
+    /** Leere oder fehlende Werte (null) aus älteren Fassungen dürfen nichts verwerfen. */
+    @Test fun nullWerte() {
+        val text = """{"app":"Baustellen Pilot","kunden":{"eintraege":[{"id":"k1","name":"A","telefon":null}]},
+            "auftraege":{"eintraege":[{"id":"a1","titel":"T","von":"2026-01-02","material":null,"fotos":null,"betrag":null,"mwst":"19,0"}]},
+            "tagesnotizen":{"2026-01-02":null,"2026-01-03":"x"}}"""
+        val g = SicherungsFormat.lesen(text, AppDaten())
+        assertTrue(g.probleme.toString(), g.probleme.isEmpty())
+        val a = g.daten.auftraege.eintraege.single()
+        assertTrue(a.material.isEmpty()); assertEquals(0.0, a.betrag, 0.0); assertEquals(19.0, a.mwst, 0.0)
+        assertEquals("x", g.daten.tagesnotizen["2026-01-03"])
+        assertEquals(2, SicherungsFormat.kopf(g.daten, "2", "z")["tagesnotizen"]!!.jsonObject.size)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun fremdeSicherung() {
         SicherungsFormat.lesen("""{"app":"Soldaten Dashboard","todos":{"eintraege":[]}}""", AppDaten())

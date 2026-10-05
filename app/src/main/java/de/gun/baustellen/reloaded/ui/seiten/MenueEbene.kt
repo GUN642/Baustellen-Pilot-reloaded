@@ -118,8 +118,8 @@ fun MenueEbene() {
             laeuft = true
             try {
                 importFrage = withContext(Dispatchers.IO) {
-                    val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                    SicherungsFormat.lesen(text, Speicher.aktuell)
+                    ctx.contentResolver.openInputStream(uri)?.use { Sicherung.lesen(ctx, it, Speicher.aktuell) }
+                        ?: throw IllegalArgumentException("Die Datei ließ sich nicht öffnen.")
                 }
             } catch (e: OutOfMemoryError) {
                 st.melden("Einlesen fehlgeschlagen", "Die Datei ist zu groß für den Arbeitsspeicher.")
@@ -331,7 +331,7 @@ fun MenueEbene() {
                     st.melden("Sicherung eingelesen", "Die Daten wurden übernommen." + if (n > 0) " $n Dateien/Fotos abgelegt." else "")
                 }
             },
-            onNein = { importFrage = null },
+            onNein = { importFrage = null; Sicherung.verwerfen(ctx) },
         )
     }
     when (loeschFrage) {

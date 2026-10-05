@@ -133,9 +133,9 @@ private fun Kopfbereich(a: Auftrag) {
         val b = a.betraege()
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Kennzahl(zahl(b.netto, 0) + " €", "Netto", p.akzent, Modifier.weight(1f))
-            Kennzahl(zahl(b.steuer, 0) + " €", "MwSt ${zahl(a.mwst, 1)} %", p.textDim, Modifier.weight(1f))
             Kennzahl(zahl(b.brutto, 0) + " €", "Brutto", p.text, Modifier.weight(1f))
         }
+        Mono("MwSt ${zahl(a.mwst, 1)} % = ${eur(b.steuer)} · eingegeben als ${if (a.basis == "brutto") "Brutto" else "Netto"}", p.textDim, 11.sp, Modifier.padding(top = 6.dp))
         if (a.eventId.isNotBlank()) Hinweis("Im Gerätekalender eingetragen. Änderungen am Zeitraum werden mitgeführt.")
     }
 }
